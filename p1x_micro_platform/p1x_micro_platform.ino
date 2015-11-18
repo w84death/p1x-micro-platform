@@ -11,9 +11,10 @@
 // Components:
 // Arduino Micro
 // OLED 128x64
-// BUZZER
-// 2x BUTTONS
-// ANALOG JOISTICK
+// 2x Buzzer (stereo)
+// 2x Buttons
+// Analog Joystick
+// (optional) power bank / battery supply
 //
 // ----------------------------------------
 
@@ -26,7 +27,8 @@
 Adafruit_SSD1306 display(OLED_RESET);
 
 
-#define BUZZ 5
+#define BUZZ_LEFT 5
+#define BUZZ_RIGHT 6
 #define BUTTON_A 7
 #define BUTTON_B 8
 #define AXIS_X 9
@@ -121,27 +123,34 @@ void game_log(boolean a, boolean b, int x, int y){
 }
 
 // ----------------------------------------------- AUDIO --
-void intro_melody(void){
-  int delay_value = 80;
-  for (long i = 0; i < 160; i++) {
-    buzz_once(delay_value, 1);
-    delay_value = delay_value + 22;
+void buzz_stereo(int delay_value, int cycles, boolean left = true, boolean right = true){
+  for (int i = 0; i < cycles; i++){
+    if(left){
+      digitalWrite(BUZZ_LEFT, HIGH);
+    }
+    if(right){
+      digitalWrite(BUZZ_RIGHT, HIGH);
+    }
+    delayMicroseconds(delay_value);
+    digitalWrite(BUZZ_LEFT, LOW);
+    digitalWrite(BUZZ_RIGHT, LOW);
+    delayMicroseconds(delay_value);
   }
 }
 
-void buzz_once(int delay_value, int cycles){
-    for (int i = 0; i < cycles; i++){
-    digitalWrite(BUZZ, HIGH);
-    delayMicroseconds(delay_value);
-    digitalWrite(BUZZ, LOW);
-    delayMicroseconds(delay_value);
+void intro_melody(void){
+  int delay_value = 80;
+  for (long i = 0; i < 160; i++) {
+    buzz_stereo(delay_value, 1);
+    delay_value = delay_value + 22;
   }
 }
 
 // ----------------------------------------------- SETUP --
 void setup() {
   Serial.begin(9600);
-  pinMode(BUZZ, OUTPUT);
+  pinMode(BUZZ_LEFT, OUTPUT);
+  pinMode(BUZZ_RIGHT, OUTPUT);
   pinMode(BUTTON_A, INPUT_PULLUP);
   pinMode(BUTTON_B, INPUT_PULLUP);
   pinMode(AXIS_X, INPUT);
@@ -176,16 +185,16 @@ void loop() {
   // -------------------------------------
   if (GAME_STATE == STATE_LOG){
     if (read_a) {
-      buzz_once(180, 4);
+      buzz_stereo(180, 4);
     }
     if (read_b) {
-      buzz_once(220, 4);
+      buzz_stereo(220, 4);
     }
     if (abs(read_x - 512) > AXIS_TRESHOLD){
-      buzz_once(read_x, 2);
+      buzz_stereo(read_x, 2, true, false);
     }
     if (abs(read_y - 512) > AXIS_TRESHOLD){
-      buzz_once(read_y, 2);
+      buzz_stereo(read_y, 2, false, true);
     }
     game_log(read_a, read_b, read_x, read_y);
   }
