@@ -1,17 +1,24 @@
 # P1X Micro Plaform
 
+Micro console / computer for creating portable games.
+
+## Components
+
 - Arduino Micro
 - OLED 128x64
-- BUZZER
-- 2x BUTTONS
-- ANALOG JOISTICK
-- OPTIONAL POWER BANK FOR MOBILE USE
+- 2x Buzzer (stereo)
+- 2x Buttons
+- Analog Joystick
+- (optional) power bank / battery supply
 
-![PMP](https://i.imgur.com/UtGg7hj.jpg)
+## Media
 
 ![PMP](https://i.imgur.com/zxohnzy.jpg)
 
-![PMP](https://i.imgur.com/EHRca7O.jpg)
+![PMP](https://i.imgur.com/FadxxjV.jpg)
 
-Video:
-https://www.youtube.com/watch?v=i_CpN5HMzAw
+![PMP](https://i.imgur.com/BLwpvBo.jpg)
+
+![PMP](https://i.imgur.com/bweIeRk.jpg)
+
+https://www.youtube.com/watch?v=SRPnkRZTSgE
