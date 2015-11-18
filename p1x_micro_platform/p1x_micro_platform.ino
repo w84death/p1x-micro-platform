@@ -75,6 +75,7 @@ char* game_strings[] = {
   "[Y] ",
 };
 
+
 void hello(void){
   display.clearDisplay();
   display.drawBitmap(55, 23,  logo_p1x, SPRITE_WIDTH, SPRITE_HEIGHT, 1);
@@ -84,16 +85,17 @@ void hello(void){
   display.setCursor(26,50);
   display.print(game_strings[0]);
   display.display();
+  intro_melody();
+  delay(1500);
 }
 
-void game_message(int string_id, boolean clear_screen = 0){
+void game_message(int string_id, boolean clear_screen = false){
   if (clear_screen){
     display.clearDisplay();
   }
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  display.print(game_strings[1]);
   display.println(game_strings[string_id]);
   display.display();
 }
@@ -118,6 +120,7 @@ void game_log(boolean a, boolean b, int x, int y){
   display.display();
 }
 
+// ----------------------------------------------- AUDIO --
 void intro_melody(void){
   int delay_value = 80;
   for (long i = 0; i < 160; i++) {
@@ -135,7 +138,7 @@ void buzz_once(int delay_value, int cycles){
   }
 }
 
-
+// ----------------------------------------------- SETUP --
 void setup() {
   Serial.begin(9600);
   pinMode(BUZZ, OUTPUT);
@@ -144,26 +147,33 @@ void setup() {
   pinMode(AXIS_X, INPUT);
   pinMode(AXIS_Y, INPUT);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);
-
   display.display();
+  
+  // DRAW LOGO
   hello();
-  intro_melody();
-  game_message(1, true);
+  
+  // PRESS ANY KEY
   GAME_STATE = STATE_READY;
+  game_message(1, true);
 }
 
+// ----------------------------------------------- MAIN LOOP --
 void loop() {
   boolean read_a = !digitalRead(BUTTON_A);
   boolean read_b = !digitalRead(BUTTON_B);
   int read_x = analogRead(AXIS_X) + AXIS_X_CALIBRATION;
   int read_y = analogRead(AXIS_Y) + AXIS_Y_CALIBRATION;
 
+  // PRESS ANY KEY
+  // -------------------------------------
   if (GAME_STATE == STATE_READY){
     if (read_a or read_b){
       GAME_STATE = STATE_LOG;
     }
   }
 
+  // GAME LOG
+  // -------------------------------------
   if (GAME_STATE == STATE_LOG){
     if (read_a) {
       buzz_once(180, 4);
@@ -179,4 +189,17 @@ void loop() {
     }
     game_log(read_a, read_b, read_x, read_y);
   }
+  
+  // MENU
+  // -------------------------------------
+  if (GAME_STATE == STATE_MENU){
+    
+  }
+  
+  // GAME
+  // -------------------------------------
+  if (GAME_STATE == STATE_GAME){
+    
+  }
 }
+
