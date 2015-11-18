@@ -94,11 +94,12 @@ static const unsigned char PROGMEM sprite_player[] =
 char* game_strings[] = {
   "MICRO PLATFORM",
   "PRESS ANY BUTTON..",
-  "LOG: ",
+  "GAME ENGINE LOG: ",
   "[A] ",
   "[B] ",
   "[X] ",
   "[Y] ",
+  "[PLAYER POS] "
 };
 
 
@@ -128,18 +129,25 @@ void game_log(boolean a, boolean b, int x, int y){
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0, 0);
-  display.print(game_strings[2]);
+  display.println(game_strings[2]);
+  
   display.print(game_strings[3]);
-  display.println(a);
-  display.print(game_strings[2]);
+  display.print(a);
+  display.print("   ");
   display.print(game_strings[4]);
   display.println(b);
-  display.print(game_strings[2]);
+  
   display.print(game_strings[5]);
   display.println(x - 512);
-  display.print(game_strings[2]);
+  
   display.print(game_strings[6]);
   display.println(y - 512);
+  
+  display.print(game_strings[7]);
+  display.print(player_x);
+  display.print("/");
+  display.print(player_y);
+  
   display.display();
 }
 
@@ -166,7 +174,7 @@ void intro_melody(void){
 void game_change_state(byte state){
   display.clearDisplay();
   GAME_STATE = state;
-  buzz_stereo(128);
+  buzz_stereo(128, 3, true);
   delay(300);
 }
 
