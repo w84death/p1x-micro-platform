@@ -112,7 +112,6 @@ void hello(void){
   display.print(game_strings[0]);
   display.display();
   intro_melody();
-  delay(1500);
 }
 
 void game_message(int string_id, boolean clear_screen = false){
@@ -145,22 +144,20 @@ void game_log(boolean a, boolean b, int x, int y){
 }
 
 // ----------------------------------------------- AUDIO --
-void buzz_stereo(int delay_value, int cycles, byte channel = 3){
-  for (int i = 0; i < cycles; i++){
-    if(channel == 1 or channel == 3) digitalWrite(BUZZ_LEFT, HIGH);
-    if(channel == 2 or channel == 3) digitalWrite(BUZZ_RIGHT, HIGH);
-    delayMicroseconds(delay_value);
-    digitalWrite(BUZZ_LEFT, LOW);
-    digitalWrite(BUZZ_RIGHT, LOW);
-  }
+void buzz_stereo(int freq, byte channel = 3, boolean music = false){
+    if(channel == 1 or channel == 3) tone(BUZZ_LEFT, freq);
+    if(channel == 2 or channel == 3) tone(BUZZ_RIGHT, freq);
+    if(music) delay(freq * 1.30);
+    noTone(BUZZ_LEFT);
+    noTone(BUZZ_RIGHT);
 }
 
 void intro_melody(void){
-  int delay_value = 80;
-  for (long i = 0; i < 160; i++) {
-    buzz_stereo(delay_value, 1, 1);
-    if(i%2 == 0) buzz_stereo(delay_value, 1, 2);
-    delay_value = delay_value + 22;
+  int freq = 80;
+  for (long i = 0; i < 4; i++) {
+    buzz_stereo(freq, 1, true);
+    if(i%2 == 0) buzz_stereo(freq, 2, true);
+    freq = freq + 22;
   }
 }
 
@@ -169,7 +166,7 @@ void intro_melody(void){
 void game_change_state(byte state){
   display.clearDisplay();
   GAME_STATE = state;
-  buzz_stereo(512, 4, 3);
+  buzz_stereo(128);
   delay(300);
 }
 
@@ -184,6 +181,7 @@ void game_move_player(byte x, byte y){
   
   if( player_y > MAX_Y - SPRITE_SIZE - MAP_BOUNDS ) player_y = MAP_BOUNDS;
   if( player_y < MAP_BOUNDS ) player_y = MAX_Y - SPRITE_SIZE - MAP_BOUNDS;
+  buzz_stereo(44);
 }
 
 // ----------------------------------------------- DRAW --
@@ -237,11 +235,7 @@ void loop() {
 
   // STATE - GAME LOG
   // -------------------------------------
-  if (GAME_STATE == STATE_LOG){
-    if (read_a() and !read_b()) buzz_stereo(180, 4, 1);
-    if (read_b() and !read_a()) buzz_stereo(220, 4, 2);
-    if (abs(read_x - 512) > AXIS_TRESHOLD) buzz_stereo(read_x, 2, 1);
-    if (abs(read_y - 512) > AXIS_TRESHOLD) buzz_stereo(read_y, 2, 2);   
+  if (GAME_STATE == STATE_LOG){  
     game_log(read_a(), read_b(), read_x, read_y);
     if (read_a() and read_b()) game_change_state(STATE_GAME);
   }
