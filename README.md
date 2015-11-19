@@ -21,6 +21,32 @@ Micro console / computer for creating portable games.
 
 ![PMP](https://i.imgur.com/bweIeRk.jpg)
 
-## Video
+## Revisions
 
-https://www.youtube.com/watch?v=SRPnkRZTSgE
+### Prototype 1 [DONE]
+
+- connect all wires
+- write some code to run and test all components (log screen)
+- write some base for game engine
+
+Video: https://www.youtube.com/watch?v=i_CpN5HMzAw
+
+### Prototype 2 [DONE]
+
+- add stere sound (2x buzzer)
+- polish the code
+- test the rig
+
+Video: https://www.youtube.com/watch?v=SRPnkRZTSgE
+
+### Prototype 3 [TODO]
+
+- write a very simple game
+
+## Future
+
+- buy all the components (clone the rig)
+- remove any pins and unused stuff from boards
+- solder all the wires (and/or use some PCB)
+- made a portable case (with battery pack)
+- go to hackathon and make a game for it :)
