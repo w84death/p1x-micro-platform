@@ -282,6 +282,7 @@ byte game_map_read(byte x, byte y, byte type){
   if( type == LAYER_TERRAIN) return bitRead(game_map_terrain[block], block_bit);
   if( type == LAYER_ITEMS) return bitRead(game_map_items[block], block_bit);
   if( type == LAYER_MONSTERS) return bitRead(game_map_monsters[block], block_bit);
+  if( type == LAYER_TEMP) return bitRead(game_map_temp[block], block_bit);
 };
 
 void game_map_write(byte x, byte y, byte type, byte set_bit = 0){
@@ -296,6 +297,7 @@ void game_map_write(byte x, byte y, byte type, byte set_bit = 0){
   if( type == LAYER_TERRAIN) bitWrite(game_map_terrain[block], block_bit, set_bit);
   if( type == LAYER_ITEMS) bitWrite(game_map_items[block], block_bit, set_bit);
   if( type == LAYER_MONSTERS) bitWrite(game_map_monsters[block], block_bit, set_bit);
+  if( type == LAYER_TEMP) bitWrite(game_map_temp[block], block_bit, set_bit);
 }
 
 
@@ -406,33 +408,46 @@ void game_change_state(byte state){
 
 
 void game_ai_run(){
+  byte x;
+  byte y;
   byte new_x;
   byte new_y;
   byte monsters = 0;
+  byte temp = 0;
   
-  for (byte x = 0; x < MAP_WIDTH; x++) {
-  for (byte y = 0; y < MAP_HEIGHT; y++) {
+  for (x = 0; x < MAP_WIDTH; x++) {
+  for (y = 0; y < MAP_HEIGHT; y++) {
     if (game_map_read(x, y, LAYER_MONSTERS)){
-      if(!(new_x == x and new_y == y)){
-        monsters++;
-        new_x = x + random(-1,2);
-        new_y = y + random(-1,2);
-        if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS)){
-          if(player_x == new_x and player_y == new_y){
-            player_alive = false;
-            game_change_state(STATE_END);
-            return;
-          }else{
-            game_map_write(x, y, LAYER_MONSTERS);
-            game_map_write(new_x, new_y, LAYER_MONSTERS, true);
-          }
-        }
+      monsters++;
+      new_x = x + random(-1,2);
+      new_y = y + random(-1,2);
+      if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS)){
+        game_map_write(new_x, new_y, LAYER_TEMP, true);
+        game_map_write(x, y, LAYER_TEMP);
+        game_map_write(x, y, LAYER_MONSTERS);
+      }else{
+        game_map_write(x, y, LAYER_TEMP, true);
       }
+      
     }
   }}
   
   if (monsters == 0){
     game_change_state(STATE_END);
+  }else{
+    // SWAP LAYERS
+    temp = 0;
+    for (x = 0; x < MAP_WIDTH; x++) {
+    for (y = 0; y < MAP_HEIGHT; y++) {
+      temp = game_map_read(x, y, LAYER_TEMP);
+
+      if(temp and (player_x == x and player_y == y)){
+        player_alive = false;
+        game_change_state(STATE_END);
+        return;
+      }
+      game_map_write(x, y, LAYER_MONSTERS, temp);
+    }}
   }
 };
 
