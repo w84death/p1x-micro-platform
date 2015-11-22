@@ -34,7 +34,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define BUTTON_B 8
 #define AXIS_X 9
 #define AXIS_Y 10
-#define AXIS_TRESHOLD 24
+#define AXIS_TRESHOLD 256
 #define AXIS_X_CALIBRATION 18
 #define AXIS_Y_CALIBRATION 0
 
@@ -47,9 +47,16 @@ int GAME_STATE = 0;
 #define LOGO_SIZE 16
 #define SPRITE_SIZE 8
 #define MAP_BOUNDS 6
+#define MAP_WIDTH 16
+#define MAP_HEIGHT 8
 
-byte player_x = 64;
-byte player_y = 32;
+#define LAYER_TERRAIN 0
+#define LAYER_WALL 1
+#define LAYER_ITEMS 2
+#define LAYER_MONSTERS 4
+
+byte player_x = 8;
+byte player_y = 4;
 
 static const unsigned char PROGMEM logo_p1x[] =
 { B11111100, B10010001,
@@ -70,16 +77,6 @@ static const unsigned char PROGMEM logo_p1x[] =
   B10000000, B10010001,
   B10000000, B10010001,
   B10000000, B10010001 };
-
-static const unsigned char PROGMEM sprite_clear[] =
-{ B11111111,
-  B11111111,
-  B11111111,
-  B11111111,
-  B11111111,
-  B11111111,
-  B11111111,
-  B11111111};
   
 static const unsigned char PROGMEM sprite_player[] =
 { B00000000,
@@ -91,6 +88,57 @@ static const unsigned char PROGMEM sprite_player[] =
   B00100100,
   B01101100};
 
+static const unsigned char PROGMEM sprite_terrain1[] =
+{ B00000000,
+  B01000000,
+  B00000100,
+  B00000000,
+  B00000000,
+  B00100000,
+  B00000010,
+  B00000000};
+
+
+static const unsigned char PROGMEM sprite_terrain2[] =
+{ B00001000,
+  B01000000,
+  B00010010,
+  B00000000,
+  B00000100,
+  B01000000,
+  B00000001,
+  B00010000};
+  
+ static const unsigned char PROGMEM sprite_wall[] =
+ {B01111110,
+  B11110101,
+  B11010101,
+  B10101011,
+  B11010111,
+  B10101111,
+  B11111111,
+  B01111110};
+  
+static const unsigned char PROGMEM sprite_item[] =
+{ B01111110,
+  B10000001,
+  B10110101,
+  B10001001,
+  B10010101,
+  B10100101,
+  B10000001,
+  B01111110};
+  
+static const unsigned char PROGMEM sprite_monster[] =
+{ B00000000,
+  B00001100,
+  B00111110,
+  B01010110,
+  B00111110,
+  B00101001,
+  B00100101,
+  B00010101};
+  
 char* game_strings[] = {
   "MICRO PLATFORM",
   "PRESS ANY BUTTON..",
@@ -99,10 +147,39 @@ char* game_strings[] = {
   "[B] ",
   "[X] ",
   "[Y] ",
-  "[PLAYER POS] "
-};
+  "[PLAYER POS] "};
 
 
+byte game_map_terrain[] =
+{ B11111111, B11111111,
+  B11001000, B01110011,
+  B10000000, B01000001,
+  B11000000, B00000001,
+  B10000000, B00000001,
+  B10000000, B00000011,
+  B10110000, B00100011,
+  B11111111, B11111111 };
+
+byte game_map_items[] =
+{ B00000000, B00000000,
+  B00000000, B00001000,
+  B00000000, B00000000,
+  B00010000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B10000000,
+  B00000000, B00000000 };
+  
+byte game_map_monsters[] =
+{ B00000000, B00000000,
+  B00100000, B00000000,
+  B00000000, B00001000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00100000, B00010000,
+  B00000000, B00000000,
+  B00000000, B00000000 };
+  
 void hello(void){
   display.clearDisplay();
   display.drawBitmap(55, 23,  logo_p1x, LOGO_SIZE, LOGO_SIZE, 1);
@@ -151,6 +228,12 @@ void game_log(boolean a, boolean b, int x, int y){
   display.display();
 }
 
+
+
+
+
+
+
 // ----------------------------------------------- AUDIO --
 void buzz_stereo(int freq, byte channel = 3, boolean music = false){
     if(channel == 1 or channel == 3) tone(BUZZ_LEFT, freq);
@@ -162,7 +245,7 @@ void buzz_stereo(int freq, byte channel = 3, boolean music = false){
 
 void intro_melody(void){
   int freq = 80;
-  for (long i = 0; i < 4; i++) {
+  for (byte i = 0; i < 4; i++) {
     buzz_stereo(freq, 1, true);
     if(i%2 == 0) buzz_stereo(freq, 2, true);
     freq = freq + 22;
@@ -178,29 +261,89 @@ void game_change_state(byte state){
   delay(300);
 }
 
+
+// ----------------------------------------------- MAP --
+
+byte game_map_read(byte x, byte y, byte type){
+  byte shift = 0;
+  byte block;
+  byte block_bit;
+  if(x >= 8) shift = 1;
+  block = (y*2)+shift;
+  block_bit = 7-(x-(8*shift));
+ 
+  if( type == LAYER_TERRAIN) return bitRead(game_map_terrain[block], block_bit);
+  if( type == LAYER_ITEMS) return bitRead(game_map_items[block], block_bit);
+  if( type == LAYER_MONSTERS) return bitRead(game_map_monsters[block], block_bit);
+};
+
+
+
+
+
+
 // ----------------------------------------------- PLAYER --
 
 void game_move_player(byte x, byte y){
-  player_x = player_x + x;
-  player_y = player_y + y;
+  byte new_x = player_x + x;
+  byte new_y = player_y + y;
   
-  if( player_x > MAX_X - SPRITE_SIZE - MAP_BOUNDS ) player_x = MAP_BOUNDS;
-  if( player_x < MAP_BOUNDS ) player_x = MAX_X - SPRITE_SIZE - MAP_BOUNDS;
-  
-  if( player_y > MAX_Y - SPRITE_SIZE - MAP_BOUNDS ) player_y = MAP_BOUNDS;
-  if( player_y < MAP_BOUNDS ) player_y = MAX_Y - SPRITE_SIZE - MAP_BOUNDS;
-  buzz_stereo(44);
+  if (!game_map_read(new_x, new_y, LAYER_TERRAIN)){
+    if (game_map_read(new_x, new_y, LAYER_ITEMS)){
+      buzz_stereo(128, 3, true);
+      // celar item
+    }
+    player_x = new_x;
+    player_y = new_y;
+    buzz_stereo(44);
+  }else{
+    buzz_stereo(22, 3, true);
+  }  
 }
+
+
+
+
+
+
+
 
 // ----------------------------------------------- DRAW --
 
 void game_draw_player(){
-  display.drawBitmap(player_x, player_y, sprite_player, SPRITE_SIZE, SPRITE_SIZE, 1);
+  display.drawBitmap(player_x*SPRITE_SIZE, player_y*SPRITE_SIZE, sprite_player, SPRITE_SIZE, SPRITE_SIZE, 1);
 }
 
 void game_draw_map(){
-  display.drawRect(0, 0, MAX_X, MAX_Y, 1);
-  display.drawRect(2, 2, MAX_X-4, MAX_Y-4, 1);
+  byte draw_tile = 0;
+
+  for (byte x = 0; x < MAP_WIDTH; x++) {
+  for (byte y = 0; y < MAP_HEIGHT; y++) {
+      
+      draw_tile = 0;
+      
+      // CHECK TILE TYPE
+      // if (!game_map_read(x, y, LAYER_TERRAIN)) draw_tile += LAYER_TERRAIN; // it's = 0 :)
+      if (game_map_read(x, y, LAYER_TERRAIN)) draw_tile += LAYER_WALL;
+      if (game_map_read(x, y, LAYER_ITEMS)) draw_tile += LAYER_ITEMS;
+      if (game_map_read(x, y, LAYER_MONSTERS)) draw_tile += LAYER_MONSTERS;
+      
+      // DRAW SPRITES
+      
+      // DRAW GRASS
+      if (draw_tile == 0){
+        if( (x+y) % 2 == 0) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_terrain1, SPRITE_SIZE, SPRITE_SIZE, 1);
+        else display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_terrain2, SPRITE_SIZE, SPRITE_SIZE, 1);
+      }
+      
+      // FOREST
+      if (draw_tile == 1) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_wall, SPRITE_SIZE, SPRITE_SIZE, 1);
+      
+      // DRAW ITEM
+      if (draw_tile == 2) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_item, SPRITE_SIZE, SPRITE_SIZE, 1);
+      if (draw_tile == 4 or draw_tile == 6) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster, SPRITE_SIZE, SPRITE_SIZE, 1);
+      
+  }}
 }
 // ----------------------------------------------- SETUP --
 void setup() {
@@ -221,6 +364,11 @@ void setup() {
   game_change_state(STATE_READY);
   game_message(1, true);
 }
+
+
+
+
+
 
 // ----------------------------------------------- MAIN LOOP --
 boolean read_a(){
