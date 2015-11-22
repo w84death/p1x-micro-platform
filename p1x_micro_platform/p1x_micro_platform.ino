@@ -42,6 +42,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define STATE_LOG 2
 #define STATE_MENU 4
 #define STATE_GAME 8
+#define STATE_END 16
 int GAME_STATE = 0;
 
 #define LOGO_SIZE 16
@@ -54,11 +55,13 @@ int GAME_STATE = 0;
 #define LAYER_WALL 1
 #define LAYER_ITEMS 2
 #define LAYER_MONSTERS 4
+#define LAYER_TEMP 8
 
-#define ATTACK_RANGE 3
+#define ATTACK_RANGE 2
 byte player_x = 8;
 byte player_y = 4;
 boolean player_item = false;
+boolean player_alive = true;
 
 static const unsigned char PROGMEM logo_p1x[] =
 { B11111100, B10010001,
@@ -143,13 +146,15 @@ static const unsigned char PROGMEM sprite_monster[] =
   
 char* game_strings[] = {
   "MICRO PLATFORM",
-  "PRESS ANY BUTTON..",
+  "KILL ALL MONSTERS",
   "GAME ENGINE LOG: ",
   "[A] ",
   "[B] ",
   "[X] ",
   "[Y] ",
-  "[PLAYER POS] "};
+  "[PLAYER POS] ",
+  "YOU WIN!",
+  "YOU DIED!" };
 
 
 byte game_map_terrain[] =
@@ -181,6 +186,16 @@ byte game_map_monsters[] =
   B00100000, B00010000,
   B00000000, B00000000,
   B00000000, B00000000 };
+
+byte game_map_temp[] =
+{ B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000,
+  B00000000, B00000000 };
   
 void hello(void){
   display.clearDisplay();
@@ -198,7 +213,7 @@ void game_message(int string_id, boolean clear_screen = false){
   if (clear_screen) display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(0,0);
+  display.setCursor(0, 0);
   display.println(game_strings[string_id]);
   display.display();
 }
@@ -224,7 +239,7 @@ void game_log(boolean a, boolean b, int x, int y){
   
   display.print(game_strings[7]);
   display.print(player_x);
-  display.print("/");
+  display.print(" x ");
   display.print(player_y);
   
   display.display();
@@ -253,16 +268,6 @@ void intro_melody(void){
     freq = freq + 22;
   }
 }
-
-// ----------------------------------------------- GAME LOGIC --
-
-void game_change_state(byte state){
-  display.clearDisplay();
-  GAME_STATE = state;
-  buzz_stereo(128, 3, true);
-  delay(300);
-}
-
 
 // ----------------------------------------------- MAP --
 
@@ -330,8 +335,8 @@ void game_player_attack(){
   if (player_item){
     buzz_stereo(12, 2, true);
     player_item = false;
-    for( byte x = player_x - 1; x <= player_x + 1; x++){
-    for( byte y = player_y - 1; y <= player_y + 1; y++){
+    for( byte x = player_x - ATTACK_RANGE; x <= player_x + ATTACK_RANGE; x++){
+    for( byte y = player_y - ATTACK_RANGE; y <= player_y + ATTACK_RANGE; y++){
       if(!( x == player_x and y == player_y) and game_map_read(x, y, LAYER_MONSTERS)){
         game_map_write(x, y, LAYER_MONSTERS); // kill monster
       }
@@ -385,9 +390,56 @@ void game_draw_map(){
 
 void game_draw_hud(){
   if (player_item){
-    display.drawCircle((player_x*SPRITE_SIZE) + (SPRITE_SIZE/2), (player_y*SPRITE_SIZE) + (SPRITE_SIZE/2), SPRITE_SIZE + ATTACK_RANGE, 1);
+    display.drawCircle((player_x*SPRITE_SIZE) + (SPRITE_SIZE/2), (player_y*SPRITE_SIZE) + (SPRITE_SIZE/2), SPRITE_SIZE * ATTACK_RANGE, 1);
   }
 };
+
+
+// ----------------------------------------------- GAME LOGIC --
+
+void game_change_state(byte state){
+  display.clearDisplay();
+  GAME_STATE = state;
+  buzz_stereo(128, 3, true);
+  delay(300);
+}
+
+
+void game_ai_run(){
+  byte new_x;
+  byte new_y;
+  byte monsters = 0;
+  
+  for (byte x = 0; x < MAP_WIDTH; x++) {
+  for (byte y = 0; y < MAP_HEIGHT; y++) {
+    if (game_map_read(x, y, LAYER_MONSTERS)){
+      if(!(new_x == x and new_y == y)){
+        monsters++;
+        new_x = x + random(-1,2);
+        new_y = y + random(-1,2);
+        if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS)){
+          if(player_x == new_x and player_y == new_y){
+            player_alive = false;
+            game_change_state(STATE_END);
+            return;
+          }else{
+            game_map_write(x, y, LAYER_MONSTERS);
+            game_map_write(new_x, new_y, LAYER_MONSTERS, true);
+          }
+        }
+      }
+    }
+  }}
+  
+  if (monsters == 0){
+    game_change_state(STATE_END);
+  }
+};
+
+
+
+
+
 
 
 // ----------------------------------------------- SETUP --
@@ -451,15 +503,17 @@ void loop() {
   // -------------------------------------
   if (GAME_STATE == STATE_GAME){
     if (read_a() and read_b()) game_change_state(STATE_LOG);
-    if (read_a()) game_player_attack();
+    if (read_a() or read_b()) game_player_attack();
     
     if(abs(read_x - 512) > AXIS_TRESHOLD){
       if(read_x < 512) game_player_move(-1,0);
       if(read_x > 512) game_player_move(1,0);
+      game_ai_run();
     }
     if(abs(read_y - 512) > AXIS_TRESHOLD){
       if(read_y < 512) game_player_move(0, -1);
       if(read_y > 512) game_player_move(0, 1);
+      game_ai_run();
     }
     
     display.clearDisplay();
@@ -468,6 +522,16 @@ void loop() {
     game_draw_hud();
     display.display();
     delay(33);
+  }
+  
+    // STATE - MENU
+  // -------------------------------------
+  if (GAME_STATE == STATE_END){
+    if(player_alive){
+      game_message(8, true);
+    }else{
+      game_message(9, true);
+    }
   }
 }
 
