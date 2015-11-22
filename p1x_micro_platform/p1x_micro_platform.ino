@@ -57,11 +57,14 @@ int GAME_STATE = 0;
 #define LAYER_MONSTERS 4
 #define LAYER_TEMP 8
 
-#define ATTACK_RANGE 2
+#define ATTACK_RANGE 1
 byte player_x = 8;
 byte player_y = 4;
 boolean player_item = false;
 boolean player_alive = true;
+
+
+unsigned int game_tick = 0;
 
 static const unsigned char PROGMEM logo_p1x[] =
 { B11111100, B10010001,
@@ -341,9 +344,12 @@ void game_player_attack(){
     for( byte y = player_y - ATTACK_RANGE; y <= player_y + ATTACK_RANGE; y++){
       if(!( x == player_x and y == player_y) and game_map_read(x, y, LAYER_MONSTERS)){
         game_map_write(x, y, LAYER_MONSTERS); // kill monster
+        game_map_write(x, y, LAYER_TEMP); // and in temp
       }
     }}
   }
+  
+  game_ai_run();
 };
 
 
@@ -385,14 +391,16 @@ void game_draw_map(){
         
         // DRAW ITEM
         if (draw_tile == 2) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_item, SPRITE_SIZE, SPRITE_SIZE, 1);
-        if (draw_tile == 4 or draw_tile == 6) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster, SPRITE_SIZE, SPRITE_SIZE, 1);
+        
+        // DRAW MONSTER
+        if (draw_tile == 4 or draw_tile == 6) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster, SPRITE_SIZE, SPRITE_SIZE, game_tick%2 == 0);
       }
   }}
 }
 
 void game_draw_hud(){
   if (player_item){
-    display.drawCircle((player_x*SPRITE_SIZE) + (SPRITE_SIZE/2), (player_y*SPRITE_SIZE) + (SPRITE_SIZE/2), SPRITE_SIZE * ATTACK_RANGE, 1);
+    display.drawCircle((player_x*SPRITE_SIZE) + (SPRITE_SIZE/2), (player_y*SPRITE_SIZE) + (SPRITE_SIZE/2), SPRITE_SIZE +  (ATTACK_RANGE * SPRITE_SIZE/2), 1);
   }
 };
 
@@ -421,7 +429,7 @@ void game_ai_run(){
       monsters++;
       new_x = x + random(-1,2);
       new_y = y + random(-1,2);
-      if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS)){
+      if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS) and !game_map_read(new_x, new_y, LAYER_TEMP)){
         game_map_write(new_x, new_y, LAYER_TEMP, true);
         game_map_write(x, y, LAYER_TEMP);
         game_map_write(x, y, LAYER_MONSTERS);
@@ -517,6 +525,8 @@ void loop() {
   // STATE - GAME
   // -------------------------------------
   if (GAME_STATE == STATE_GAME){
+    game_tick++;
+    
     if (read_a() and read_b()) game_change_state(STATE_LOG);
     if (read_a() or read_b()) game_player_attack();
     
@@ -536,7 +546,7 @@ void loop() {
     game_draw_player();
     game_draw_hud();
     display.display();
-    delay(33);
+    delay(10);
   }
   
     // STATE - MENU
