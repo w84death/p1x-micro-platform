@@ -360,7 +360,7 @@ void game_player_attack(){
 // ----------------------------------------------- DRAW --
 
 void game_draw_player(){
-  display.drawBitmap(player_x*SPRITE_SIZE, player_y*SPRITE_SIZE, sprite_player, SPRITE_SIZE, SPRITE_SIZE, 1);
+  display.drawBitmap(player_x*SPRITE_SIZE, player_y*SPRITE_SIZE, sprite_player, SPRITE_SIZE, SPRITE_SIZE, player_alive);
 }
 
 void game_draw_map(){
@@ -371,7 +371,7 @@ void game_draw_map(){
       
       draw_tile = 0;
       
-      if (!(player_x == x and player_y == y)){
+      
         // CHECK TILE TYPE
         // if (!game_map_read(x, y, LAYER_TERRAIN)) draw_tile += LAYER_TERRAIN; // it's = 0 :)
         if (game_map_read(x, y, LAYER_TERRAIN)) draw_tile += LAYER_WALL;
@@ -380,21 +380,22 @@ void game_draw_map(){
         
         // DRAW SPRITES
         
-        // DRAW GRASS
-        if (draw_tile == 0){
-          if( (x+y) % 2 == 0) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_terrain1, SPRITE_SIZE, SPRITE_SIZE, 1);
-          else display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_terrain2, SPRITE_SIZE, SPRITE_SIZE, 1);
-        }
-        
-        // FOREST
-        if (draw_tile == 1) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_wall, SPRITE_SIZE, SPRITE_SIZE, 1);
-        
-        // DRAW ITEM
-        if (draw_tile == 2) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_item, SPRITE_SIZE, SPRITE_SIZE, 1);
-        
+        if(!(player_x == x and player_y == y)){
+          // DRAW GRASS
+          if (draw_tile == 0){
+            if( (x+y) % 2 == 0) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_terrain1, SPRITE_SIZE, SPRITE_SIZE, 1);
+            else display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_terrain2, SPRITE_SIZE, SPRITE_SIZE, 1);
+          }
+          
+          // FOREST
+          if (draw_tile == 1) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_wall, SPRITE_SIZE, SPRITE_SIZE, 1);
+          
+          // DRAW ITEM
+          if (draw_tile == 2) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_item, SPRITE_SIZE, SPRITE_SIZE, 1);
+        } 
         // DRAW MONSTER
         if (draw_tile == 4 or draw_tile == 6) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster, SPRITE_SIZE, SPRITE_SIZE, game_tick%2 == 0);
-      }
+      
   }}
 }
 
@@ -452,8 +453,8 @@ void game_ai_run(){
       if(temp and (player_x == x and player_y == y)){
         player_alive = false;
         game_change_state(STATE_END);
-        return;
       }
+      
       game_map_write(x, y, LAYER_MONSTERS, temp);
     }}
   }
@@ -524,21 +525,26 @@ void loop() {
   
   // STATE - GAME
   // -------------------------------------
-  if (GAME_STATE == STATE_GAME){
-    game_tick++;
+  if (GAME_STATE == STATE_GAME or GAME_STATE == STATE_END){
+    
     
     if (read_a() and read_b()) game_change_state(STATE_LOG);
-    if (read_a() or read_b()) game_player_attack();
     
-    if(abs(read_x - 512) > AXIS_TRESHOLD){
-      if(read_x < 512) game_player_move(-1,0);
-      if(read_x > 512) game_player_move(1,0);
-      game_ai_run();
-    }
-    if(abs(read_y - 512) > AXIS_TRESHOLD){
-      if(read_y < 512) game_player_move(0, -1);
-      if(read_y > 512) game_player_move(0, 1);
-      game_ai_run();
+    if(player_alive){
+      game_tick++;
+      if (read_a() or read_b()) game_player_attack();
+      if(abs(read_x - 512) > AXIS_TRESHOLD){
+        if(read_x < 512) game_player_move(-1,0);
+        if(read_x > 512) game_player_move(1,0);
+        game_ai_run();
+      }
+      if(abs(read_y - 512) > AXIS_TRESHOLD){
+        if(read_y < 512) game_player_move(0, -1);
+        if(read_y > 512) game_player_move(0, 1);
+        game_ai_run();
+      }
+    }else{
+      game_tick = 2;
     }
     
     display.clearDisplay();
@@ -546,17 +552,19 @@ void loop() {
     game_draw_player();
     game_draw_hud();
     display.display();
-    delay(10);
+    delay(33);
   }
   
-    // STATE - MENU
+  // STATE - MENU
   // -------------------------------------
   if (GAME_STATE == STATE_END){
+    delay(1200);
     if(player_alive){
       game_message(8, true);
     }else{
       game_message(9, true);
     }
+    delay(500);
   }
 }
 
