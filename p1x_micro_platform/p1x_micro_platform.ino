@@ -39,7 +39,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define AXIS_Y_CALIBRATION 0
 
 #define STATE_READY 1
-#define STATE_LOG 2
+#define STATE_INVENTORY 2
 #define STATE_MENU 4
 #define STATE_GAME 8
 #define STATE_END 16
@@ -57,14 +57,16 @@ int GAME_STATE = 0;
 #define LAYER_MONSTERS 4
 #define LAYER_TEMP 8
 
-#define ATTACK_RANGE 1
-byte player_x = 8;
-byte player_y = 4;
+
+byte player_x = 1;
+byte player_y = 1;
 boolean player_item = false;
 boolean player_alive = true;
 boolean player_direction_left = true;
+byte player_attack_range = 2;
+byte player_ammo = 0;
 
-byte monsters_alive = 0;
+byte aliens_alive = 0;
 unsigned int game_tick = 0;
 
 static const unsigned char PROGMEM logo_p1x[] =
@@ -108,24 +110,24 @@ static const unsigned char PROGMEM sprite_player_right[] =
   B00110110};
 
 static const unsigned char PROGMEM sprite_terrain1[] =
-{ B10000001,
+{ B00000000,
+  B00000000,
+  B00000000,
+  B00001000,
   B00000000,
   B00000000,
   B00000000,
-  B00000000,
-  B00000000,
-  B00000000,
-  B10000001};
+  B00000000};
 
 
 static const unsigned char PROGMEM sprite_terrain2[] =
 { B00000000,
-  B01000010,
   B00000000,
   B00000000,
   B00000000,
+  B00010000,
   B00000000,
-  B01000010,
+  B00000000,
   B00000000};
   
  static const unsigned char PROGMEM sprite_wall[] =
@@ -139,14 +141,14 @@ static const unsigned char PROGMEM sprite_terrain2[] =
   B01100110};
   
 static const unsigned char PROGMEM sprite_item[] =
-{ B01111110,
-  B10000001,
-  B10110101,
-  B10001001,
-  B10010101,
-  B10100101,
-  B10000001,
-  B01111110};
+{ B10000001,
+  B00111100,
+  B01000010,
+  B01011010,
+  B01010010,
+  B01000010,
+  B00111100,
+  B10000001};
   
 static const unsigned char PROGMEM sprite_monster_anim0[] =
 { B00000000,
@@ -167,48 +169,34 @@ static const unsigned char PROGMEM sprite_monster_anim1[] =
   B00101001,
   B01000101,
   B00101010};
-  
-char* game_strings[] = {
-  "MICRO PLATFORM",
-  "KILL ALL MONSTERS",
-  "GAME ENGINE LOG: ",
-  "[A] ",
-  "[B] ",
-  "[X] ",
-  "[Y] ",
-  "[PLAYER POS] ",
-  "YOU WIN!",
-  "YOU DIED!",
-  "[MONSTERS] " };
-
 
 byte game_map_terrain[] =
 { B11111111, B11111111,
-  B11001100, B01110011,
-  B10000000, B01110001,
-  B11011100, B00000001,
-  B10011100, B00000001,
-  B10011100, B00000011,
-  B10000000, B01100011,
+  B10111000, B00110001,
+  B10110001, B10110001,
+  B10111111, B10111001,
+  B10111111, B00011011,
+  B10100100, B00010011,
+  B10000111, B00000111,
   B11111111, B11111111 };
 
 byte game_map_items[] =
 { B00000000, B00000000,
-  B00000000, B00001000,
   B00000000, B00000000,
-  B00000100, B00000000,
+  B00001000, B00000000,
   B00000000, B00000000,
   B00000000, B00000000,
-  B00000000, B10000000,
+  B00001000, B00000000,
+  B00000000, B00000000,
   B00000000, B00000000 };
   
-byte game_map_monsters[] =
+byte game_map_aliens[] =
 { B00000000, B00000000,
-  B00100000, B00000000,
-  B00000000, B00001000,
+  B00000000, B00000100,
+  B00000000, B01000000,
   B00000000, B00000000,
   B00000000, B00000000,
-  B00100000, B00010000,
+  B00000000, B01000000,
   B00000000, B00000000,
   B00000000, B00000000 };
 
@@ -225,50 +213,62 @@ byte game_map_temp[] =
 void hello(void){
   display.clearDisplay();
   display.drawBitmap(55, 23,  logo_p1x, LOGO_SIZE, LOGO_SIZE, 1);
-  display.display();
+  
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(26,50);
-  display.print(game_strings[0]);
+  display.print("MICRO PLATFORM");
+  display.setCursor(12,68);
+  display.print("PRESS A TO START");
   display.display();
   intro_melody();
 }
 
-void game_message(int string_id, boolean clear_screen = false){
-  if (clear_screen) display.clearDisplay();
+void game_draw_intro(){
+  display.clearDisplay();
+  display.setCursor(0,38);
+  display.println("NEVADA, USA");  
+  display.println("MILITARY BASE");
+  display.display();
+};
+
+void game_draw_end_screen(boolean win){
+  display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(16, 32);
-  display.println(game_strings[string_id]);
+  if(win)  display.println("YOU WIN!");
+  if(!win)  display.println("GAME OVER");
   display.display();
 }
 
-void game_log(boolean a, boolean b, int x, int y){
+
+void game_draw_inventory(){
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0, 0);
-  display.println(game_strings[2]);
   
-  display.print(game_strings[3]);
-  display.print(a);
-  display.print("   ");
-  display.print(game_strings[4]);
-  display.println(b);
+  display.println("--INVENTORY---------");
   
-  display.print(game_strings[5]);
-  display.println(x - 512);
+  display.print("BLASTER: ");
+  if (player_item) display.println("IN HAND");
+  if (!player_item) display.println("-");
   
-  display.print(game_strings[6]);
-  display.println(y - 512);
+  display.print("ATTACK RANGE: ");
+  display.print(player_attack_range);
+  display.println();
   
-  display.print(game_strings[7]);
-  display.print(player_x);
-  display.print(" x ");
-  display.println(player_y);
-  
-  display.print(game_strings[10]);
-  display.print(monsters_alive);
+  display.print("AMMO: ");
+  for(byte a = 0; a<player_ammo; a++){
+    display.print("[+]");
+  }
+  display.println();
+
+  display.setCursor(0, 48);
+  display.println("--ALINENS DETECTED--");
+  display.print("> ");
+  display.print(aliens_alive);
   
   display.display();
 }
@@ -309,7 +309,7 @@ byte game_map_read(byte x, byte y, byte type){
  
   if( type == LAYER_TERRAIN) return bitRead(game_map_terrain[block], block_bit);
   if( type == LAYER_ITEMS) return bitRead(game_map_items[block], block_bit);
-  if( type == LAYER_MONSTERS) return bitRead(game_map_monsters[block], block_bit);
+  if( type == LAYER_MONSTERS) return bitRead(game_map_aliens[block], block_bit);
   if( type == LAYER_TEMP) return bitRead(game_map_temp[block], block_bit);
 };
 
@@ -324,7 +324,7 @@ void game_map_write(byte x, byte y, byte type, byte set_bit = 0){
   
   if( type == LAYER_TERRAIN) bitWrite(game_map_terrain[block], block_bit, set_bit);
   if( type == LAYER_ITEMS) bitWrite(game_map_items[block], block_bit, set_bit);
-  if( type == LAYER_MONSTERS) bitWrite(game_map_monsters[block], block_bit, set_bit);
+  if( type == LAYER_MONSTERS) bitWrite(game_map_aliens[block], block_bit, set_bit);
   if( type == LAYER_TEMP) bitWrite(game_map_temp[block], block_bit, set_bit);
 }
 
@@ -337,10 +337,10 @@ void game_player_move(byte x, byte y){
   byte new_x = player_x + x;
   byte new_y = player_y + y;
   
-  if (!game_map_read(new_x, new_y, LAYER_TERRAIN)){
+  if (new_x >= 0 and new_y >= 0 and new_x < MAP_WIDTH and new_y < MAP_HEIGHT and !game_map_read(new_x, new_y, LAYER_TERRAIN)){
     
     // TAKE ITEM
-    if (!player_item and game_map_read(new_x, new_y, LAYER_ITEMS)){
+    if (game_map_read(new_x, new_y, LAYER_ITEMS)){
       game_player_take_item(new_x, new_y);
     }else{
       buzz_stereo(44);
@@ -358,20 +358,29 @@ void game_player_move(byte x, byte y){
 void game_player_take_item(byte x, byte y){
   if(!player_item){
     buzz_stereo(200, 3, true);
-    player_item = true;
-    game_map_write(x, y, LAYER_ITEMS); // clear item
+    player_attack_range = 1;
+    player_ammo += 3;
+  }else{
+     buzz_stereo(100, 3, true);
+     buzz_stereo(100, 3, true);
+     player_attack_range++;
   }
+  player_item = true;
+  game_map_write(x, y, LAYER_ITEMS); // clear item
 };
 
 void game_player_attack(){
-  if (player_item){
+  if (player_item and player_ammo > 0){
     buzz_stereo(40, 3, true);
     buzz_stereo(30, 3, true);
     buzz_stereo(60, 3, true);
-    player_item = false;
-    for( byte x = player_x - ATTACK_RANGE; x <= player_x + ATTACK_RANGE; x++){
-    for( byte y = player_y - ATTACK_RANGE; y <= player_y + ATTACK_RANGE; y++){
-      if(!( x == player_x and y == player_y) and game_map_read(x, y, LAYER_MONSTERS)){
+    player_ammo--;
+    if(player_ammo<1) player_item = false;
+    
+    for( int x = player_x - player_attack_range; x <= player_x + player_attack_range; x++){
+    for( int y = player_y - player_attack_range; y <= player_y + player_attack_range; y++){
+      if(x >= 0 and y >= 0 and x < MAP_WIDTH and y < MAP_HEIGHT and !( x == player_x and y == player_y)){
+        game_map_write(x, y, LAYER_TERRAIN); // destroy terrain
         game_map_write(x, y, LAYER_MONSTERS); // kill monster
         game_map_write(x, y, LAYER_TEMP); // and in temp
       }
@@ -440,7 +449,7 @@ void game_draw_map(){
 
 void game_draw_hud(){
   if (player_item){
-    display.drawCircle((player_x*SPRITE_SIZE) + (SPRITE_SIZE/2), (player_y*SPRITE_SIZE) + (SPRITE_SIZE/2), SPRITE_SIZE +  (ATTACK_RANGE * SPRITE_SIZE/2), 1);
+    display.drawCircle((player_x*SPRITE_SIZE) + (SPRITE_SIZE/2), (player_y*SPRITE_SIZE) + (SPRITE_SIZE/2), SPRITE_SIZE +  (player_attack_range * SPRITE_SIZE), 1);
   }
 };
 
@@ -469,7 +478,7 @@ void game_ai_run(){
       monsters++;
       new_x = x + random(-1, 2);
       new_y = y + random(-1, 2);
-      if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS) and !game_map_read(new_x, new_y, LAYER_TEMP)){
+      if (new_x >= 0 and new_y >= 0 and new_x < MAP_WIDTH and new_y < MAP_HEIGHT and !game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS) and !game_map_read(new_x, new_y, LAYER_TEMP)){
         game_map_write(new_x, new_y, LAYER_TEMP, true);
         game_map_write(x, y, LAYER_TEMP);
         game_map_write(x, y, LAYER_MONSTERS);
@@ -495,7 +504,7 @@ void game_ai_run(){
       }
       
       game_map_write(x, y, LAYER_MONSTERS, temp);
-      monsters_alive = monsters;
+      aliens_alive = monsters;
     }}
   }
 };
@@ -523,7 +532,6 @@ void setup() {
   
   // PRESS ANY KEY
   game_change_state(STATE_READY);
-  game_message(1, true);
 }
 
 
@@ -547,14 +555,18 @@ void loop() {
   // STATE - PRESS ANY KEY
   // -------------------------------------
   if (GAME_STATE == STATE_READY){
-    if (read_a() or read_b()) game_change_state(STATE_GAME);
+    game_draw_intro();
+    if (read_a() or read_b()){
+      game_change_state(STATE_GAME);
+      game_ai_run();
+    }
   }
 
-  // STATE - GAME LOG
+  // STATE - INVENTORY
   // -------------------------------------
-  if (GAME_STATE == STATE_LOG){  
-    game_log(read_a(), read_b(), read_x, read_y);
-    if (read_a() and read_b()) game_change_state(STATE_GAME);
+  if (GAME_STATE == STATE_INVENTORY){  
+    game_draw_inventory();
+    if (read_b()) game_change_state(STATE_GAME);
   }
   
   // STATE - MENU
@@ -568,16 +580,18 @@ void loop() {
   if (GAME_STATE == STATE_GAME or GAME_STATE == STATE_END){
     
     
-    if (read_a() and read_b()) game_change_state(STATE_LOG);
+    if (read_b()) game_change_state(STATE_INVENTORY);
     
     if(player_alive){
       game_tick++;
-      if (read_a() or read_b()) game_player_attack();
+      if (read_a()) game_player_attack();
+      
       if(abs(read_x - 512) > AXIS_TRESHOLD){
         if(read_x < 512) game_player_move(-1,0);
         if(read_x > 512) game_player_move(1,0);
         game_ai_run();
       }
+      
       if(abs(read_y - 512) > AXIS_TRESHOLD){
         if(read_y < 512) game_player_move(0, -1);
         if(read_y > 512) game_player_move(0, 1);
@@ -589,7 +603,7 @@ void loop() {
     
     display.clearDisplay();
     game_draw_map();
-    game_draw_player();
+    if(player_alive) game_draw_player();
     game_draw_hud();
     display.display();
     delay(33);
@@ -600,9 +614,9 @@ void loop() {
   if (GAME_STATE == STATE_END){
     delay(1200);
     if(player_alive){
-      game_message(8, true);
+      game_draw_end_screen(true);
     }else{
-      game_message(9, true);
+      game_draw_end_screen(false);
     }
     delay(500);
   }
