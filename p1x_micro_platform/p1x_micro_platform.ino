@@ -171,23 +171,23 @@ static const unsigned char PROGMEM sprite_monster_anim1[] =
   B00101010};
 
 byte game_map_terrain[] =
-{ B11111111, B11111111,
-  B10111000, B00110001,
-  B10110001, B10110001,
-  B10111111, B10111001,
-  B10111111, B00011011,
-  B10100100, B00010011,
-  B10000111, B00000111,
-  B11111111, B11111111 };
+{ B11110001, B11100011,
+  B10100000, B00100011,
+  B00100100, B10110001,
+  B01111111, B10111001,
+  B00111111, B00011011,
+  B01100100, B00010011,
+  B00000111, B00000111,
+  B11000001, B11111111 };
 
 byte game_map_items[] =
 { B00000000, B00000000,
+  B00010000, B00000000,
   B00000000, B00000000,
-  B00001000, B00000000,
   B00000000, B00000000,
   B00000000, B00000000,
-  B00001000, B00000000,
   B00000000, B00000000,
+  B00010000, B00000000,
   B00000000, B00000000 };
   
 byte game_map_aliens[] =
@@ -359,11 +359,12 @@ void game_player_take_item(byte x, byte y){
   if(!player_item){
     buzz_stereo(200, 3, true);
     player_attack_range = 1;
-    player_ammo += 3;
+    player_ammo = 2;
   }else{
      buzz_stereo(100, 3, true);
      buzz_stereo(100, 3, true);
      player_attack_range++;
+     player_ammo++;
   }
   player_item = true;
   game_map_write(x, y, LAYER_ITEMS); // clear item
