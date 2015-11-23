@@ -62,8 +62,9 @@ byte player_x = 8;
 byte player_y = 4;
 boolean player_item = false;
 boolean player_alive = true;
+boolean player_direction_left = true;
 
-
+byte monsters_alive = 0;
 unsigned int game_tick = 0;
 
 static const unsigned char PROGMEM logo_p1x[] =
@@ -86,46 +87,56 @@ static const unsigned char PROGMEM logo_p1x[] =
   B10000000, B10010001,
   B10000000, B10010001 };
   
-static const unsigned char PROGMEM sprite_player[] =
+static const unsigned char PROGMEM sprite_player_left[] =
 { B00000000,
   B00110000,
   B01011000,
   B01111100,
   B10111010,
-  B10011001,
+  B10011000,
   B00100100,
   B01101100};
+  
+static const unsigned char PROGMEM sprite_player_right[] =
+{ B00000000,
+  B00001100,
+  B00011010,
+  B00111110,
+  B01011101,
+  B00011001,
+  B00100100,
+  B00110110};
 
 static const unsigned char PROGMEM sprite_terrain1[] =
-{ B00000000,
-  B01000000,
-  B00000100,
+{ B10000001,
   B00000000,
   B00000000,
-  B00100000,
-  B00000010,
-  B00000000};
+  B00000000,
+  B00000000,
+  B00000000,
+  B00000000,
+  B10000001};
 
 
 static const unsigned char PROGMEM sprite_terrain2[] =
-{ B00001000,
-  B01000000,
-  B00010010,
+{ B00000000,
+  B01000010,
   B00000000,
-  B00000100,
-  B01000000,
-  B00000001,
-  B00010000};
+  B00000000,
+  B00000000,
+  B00000000,
+  B01000010,
+  B00000000};
   
  static const unsigned char PROGMEM sprite_wall[] =
- {B01111110,
-  B11110101,
-  B11010101,
-  B10101011,
-  B11010111,
-  B10101111,
-  B11111111,
-  B01111110};
+ {B01100110,
+  B11000011,
+  B10110101,
+  B00000100,
+  B00100000,
+  B10101101,
+  B11000011,
+  B01100110};
   
 static const unsigned char PROGMEM sprite_item[] =
 { B01111110,
@@ -137,7 +148,7 @@ static const unsigned char PROGMEM sprite_item[] =
   B10000001,
   B01111110};
   
-static const unsigned char PROGMEM sprite_monster[] =
+static const unsigned char PROGMEM sprite_monster_anim0[] =
 { B00000000,
   B00001100,
   B00111110,
@@ -146,6 +157,16 @@ static const unsigned char PROGMEM sprite_monster[] =
   B00101001,
   B00100101,
   B00010101};
+  
+static const unsigned char PROGMEM sprite_monster_anim1[] =
+{ B00000000,
+  B00001100,
+  B00111110,
+  B01101010,
+  B00111110,
+  B00101001,
+  B01000101,
+  B00101010};
   
 char* game_strings[] = {
   "MICRO PLATFORM",
@@ -157,17 +178,18 @@ char* game_strings[] = {
   "[Y] ",
   "[PLAYER POS] ",
   "YOU WIN!",
-  "YOU DIED!" };
+  "YOU DIED!",
+  "[MONSTERS] " };
 
 
 byte game_map_terrain[] =
 { B11111111, B11111111,
-  B11001000, B01110011,
-  B10000000, B01000001,
-  B11000000, B00000001,
-  B10000000, B00000001,
-  B10000000, B00000011,
-  B10110000, B00100011,
+  B11001100, B01110011,
+  B10000000, B01110001,
+  B11011100, B00000001,
+  B10011100, B00000001,
+  B10011100, B00000011,
+  B10000000, B01100011,
   B11111111, B11111111 };
 
 byte game_map_items[] =
@@ -216,7 +238,7 @@ void game_message(int string_id, boolean clear_screen = false){
   if (clear_screen) display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(0, 0);
+  display.setCursor(16, 32);
   display.println(game_strings[string_id]);
   display.display();
 }
@@ -243,7 +265,10 @@ void game_log(boolean a, boolean b, int x, int y){
   display.print(game_strings[7]);
   display.print(player_x);
   display.print(" x ");
-  display.print(player_y);
+  display.println(player_y);
+  
+  display.print(game_strings[10]);
+  display.print(monsters_alive);
   
   display.display();
 }
@@ -319,6 +344,8 @@ void game_player_move(byte x, byte y){
       game_player_take_item(new_x, new_y);
     }else{
       buzz_stereo(44);
+      if (new_x < player_x) player_direction_left = true;
+      if (new_x > player_x) player_direction_left = false;
       player_x = new_x;
       player_y = new_y;
     }
@@ -330,7 +357,7 @@ void game_player_move(byte x, byte y){
 
 void game_player_take_item(byte x, byte y){
   if(!player_item){
-    buzz_stereo(80, 3, true);
+    buzz_stereo(200, 3, true);
     player_item = true;
     game_map_write(x, y, LAYER_ITEMS); // clear item
   }
@@ -338,7 +365,9 @@ void game_player_take_item(byte x, byte y){
 
 void game_player_attack(){
   if (player_item){
-    buzz_stereo(12, 2, true);
+    buzz_stereo(40, 3, true);
+    buzz_stereo(30, 3, true);
+    buzz_stereo(60, 3, true);
     player_item = false;
     for( byte x = player_x - ATTACK_RANGE; x <= player_x + ATTACK_RANGE; x++){
     for( byte y = player_y - ATTACK_RANGE; y <= player_y + ATTACK_RANGE; y++){
@@ -360,7 +389,11 @@ void game_player_attack(){
 // ----------------------------------------------- DRAW --
 
 void game_draw_player(){
-  display.drawBitmap(player_x*SPRITE_SIZE, player_y*SPRITE_SIZE, sprite_player, SPRITE_SIZE, SPRITE_SIZE, player_alive);
+  if (player_direction_left){
+    display.drawBitmap(player_x*SPRITE_SIZE, player_y*SPRITE_SIZE, sprite_player_left, SPRITE_SIZE, SPRITE_SIZE, player_alive);
+  }else{
+    display.drawBitmap(player_x*SPRITE_SIZE, player_y*SPRITE_SIZE, sprite_player_right, SPRITE_SIZE, SPRITE_SIZE, player_alive);
+  }
 }
 
 void game_draw_map(){
@@ -394,7 +427,13 @@ void game_draw_map(){
           if (draw_tile == 2) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_item, SPRITE_SIZE, SPRITE_SIZE, 1);
         } 
         // DRAW MONSTER
-        if (draw_tile == 4 or draw_tile == 6) display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster, SPRITE_SIZE, SPRITE_SIZE, game_tick%2 == 0);
+        if (draw_tile == 4 or draw_tile == 6){
+          if (game_tick%2 == 0){
+            display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster_anim0, SPRITE_SIZE, SPRITE_SIZE, 1);
+          }else{
+            display.drawBitmap(x*SPRITE_SIZE, y*SPRITE_SIZE, sprite_monster_anim1, SPRITE_SIZE, SPRITE_SIZE, 1);
+          }
+        }
       
   }}
 }
@@ -428,8 +467,8 @@ void game_ai_run(){
   for (y = 0; y < MAP_HEIGHT; y++) {
     if (game_map_read(x, y, LAYER_MONSTERS)){
       monsters++;
-      new_x = x + random(-1,2);
-      new_y = y + random(-1,2);
+      new_x = x + random(-1, 2);
+      new_y = y + random(-1, 2);
       if (!game_map_read(new_x, new_y, LAYER_TERRAIN) and !game_map_read(new_x, new_y, LAYER_MONSTERS) and !game_map_read(new_x, new_y, LAYER_TEMP)){
         game_map_write(new_x, new_y, LAYER_TEMP, true);
         game_map_write(x, y, LAYER_TEMP);
@@ -456,6 +495,7 @@ void game_ai_run(){
       }
       
       game_map_write(x, y, LAYER_MONSTERS, temp);
+      monsters_alive = monsters;
     }}
   }
 };
