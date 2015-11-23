@@ -363,7 +363,7 @@ void game_player_take_item(byte x, byte y){
   }else{
      buzz_stereo(100, 3, true);
      buzz_stereo(100, 3, true);
-     player_attack_range = 3;
+     player_attack_range = 1;
      player_ammo += 2;
   }
   player_item = true;
