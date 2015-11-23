@@ -64,7 +64,7 @@ boolean player_item = false;
 boolean player_alive = true;
 boolean player_direction_left = true;
 byte player_attack_range = 2;
-byte player_ammo = 0;
+byte player_ammo = 1;
 
 byte aliens_alive = 0;
 unsigned int game_tick = 0;
@@ -177,8 +177,8 @@ byte game_map_terrain[] =
   B01111111, B10111001,
   B00111111, B00011011,
   B01100100, B00010011,
-  B00000111, B00000111,
-  B11000001, B11111111 };
+  B00000111, B11000011,
+  B11000100, B00011111 };
 
 byte game_map_items[] =
 { B00000000, B00000000,
@@ -187,7 +187,7 @@ byte game_map_items[] =
   B00000000, B00000000,
   B00000000, B00000000,
   B00000000, B00000000,
-  B00010000, B00000000,
+  B00010000, B00000100,
   B00000000, B00000000 };
   
 byte game_map_aliens[] =
@@ -359,12 +359,12 @@ void game_player_take_item(byte x, byte y){
   if(!player_item){
     buzz_stereo(200, 3, true);
     player_attack_range = 1;
-    player_ammo = 2;
+    player_ammo++;
   }else{
      buzz_stereo(100, 3, true);
      buzz_stereo(100, 3, true);
-     player_attack_range++;
-     player_ammo++;
+     player_attack_range = 3;
+     player_ammo += 2;
   }
   player_item = true;
   game_map_write(x, y, LAYER_ITEMS); // clear item
