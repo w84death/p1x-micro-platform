@@ -41,7 +41,9 @@ Video: https://www.youtube.com/watch?v=SRPnkRZTSgE
 
 ### Prototype 3 [TODO]
 
-- write a very simple game
+- simple game about aliens adn stuff
+
+Video: https://www.youtube.com/watch?v=KRvAvD9oMvY
 
 ## Future
 
